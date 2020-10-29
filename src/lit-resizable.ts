@@ -9,7 +9,7 @@ import {
   TemplateResult,
 } from "lit-element";
 import "./lit-draggable";
-import type { DraggingEvent, LGLDomEvent } from "./types";
+import type { DraggingEvent, LGLDomEvent, ResizableResizeEvent } from "./types";
 import { fireEvent } from "./util/fire-event";
 
 @customElement("lit-resizable")
@@ -81,7 +81,7 @@ export class LitResizable extends LitElement {
     const width = this.startWidth + deltaX;
     const height = this.startHeight + deltaY;
 
-    fireEvent(this, "resize", {
+    fireEvent<ResizableResizeEvent>(this, "resize", {
       width,
       height,
       deltaX,

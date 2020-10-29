@@ -9,15 +9,17 @@ import {
   PropertyValues,
   TemplateResult,
 } from "lit-element";
+import { nothing } from 'lit-html';
+import { repeat } from 'lit-html/directives/repeat';
 import "./lit-grid-item";
 import type {
   ItemDraggedEvent,
   ItemResizedEvent,
   Layout,
   LayoutItem,
-  LayoutItemElement,
-  LayoutObject,
   LGLItemDomEvent,
+  LayoutChangedEvent,
+  ItemChangedEvent,
 } from "./types";
 import { condenseLayout } from "./util/condense-layout";
 import { debounce } from "./util/debounce";
@@ -28,13 +30,25 @@ import { getMasonryLayout } from "./util/get-masonry-layout";
 import { installResizeObserver } from "./util/install-resize-observer";
 import { moveItem } from "./util/move-item";
 
+// Every item should be rendered to a node, even if it's a hidden node
+export type ItemRenderer = (itemKey: string) => TemplateResult;
+
+const areLayoutsDifferent = (a: Layout, b: Layout): boolean => {
+  if (a === b) return false;
+  return a.length !== b.length ||
+    a.some((aItem, itemIndex) => {
+      const bItem = b[itemIndex];
+      const aItemKeys = Object.keys(aItem);
+      return aItemKeys.length !== Object.keys(bItem).length ||
+        aItemKeys.some(key => aItem[key] !== bItem[key]);
+    });
+};
+
 @customElement("lit-grid-layout")
 export class LitGridLayout extends LitElement {
   @property({ type: Array }) public layout?: Layout;
 
   @property() public sortStyle: "default" | "masonry" = "masonry";
-
-  @property({ type: Array }) public items: LayoutItemElement[] = [];
 
   @property({ type: Array }) public margin: [number, number] = [10, 10];
 
@@ -61,11 +75,11 @@ export class LitGridLayout extends LitElement {
   @property({ type: Boolean, attribute: true, reflect: true })
   public dragging?: boolean = false;
 
+  @property() public itemRenderer?: ItemRenderer;
+
   @internalProperty() private _width = 0;
 
   @internalProperty() private _layout: Layout = [];
-
-  @internalProperty() private _layoutObject: LayoutObject = {};
 
   @internalProperty() private _placeholder?: LayoutItem;
 
@@ -74,14 +88,6 @@ export class LitGridLayout extends LitElement {
   private _oldItemIndex?: number;
 
   private _resizeObserver?: ResizeObserver;
-
-  get _childrenElements(): LayoutItemElement[] {
-    return this.items.concat(
-      ...Array.prototype.filter.call(this.children, (e: LayoutItemElement) =>
-        e.classList.contains("grid-item")
-      )
-    );
-  }
 
   get _layoutHeight(): number {
     const btm = findLayoutBottom(this._layout);
@@ -122,12 +128,20 @@ export class LitGridLayout extends LitElement {
       return html``;
     }
 
+    const keyFn = (item: LayoutItem) => item.key;
+
     return html`
-      ${this._childrenElements.map((element) => {
-        const item = this._layoutObject[element.key];
-        if (!item) {
-          return html``;
+      ${repeat(this._layout, keyFn, item => {
+        // Workaround: return "nothing" to remove nodes that are no longer used
+        // Possibly related to https://github.com/Polymer/lit-html/issues/1007
+        if (
+          !item ||
+          !this._layout.some(layoutItem => layoutItem.key === item.key)
+        ) {
+          return nothing;
         }
+
+        if (!this.itemRenderer) throw new Error('Missing "itemRenderer"');
 
         return html`
           <lit-grid-item
@@ -156,7 +170,7 @@ export class LitGridLayout extends LitElement {
             @dragging=${this._itemDrag}
             @dragEnd=${this._itemDragEnd}
           >
-            ${element}
+            ${this.itemRenderer(item.key)}
           </lit-grid-item>
         `;
       })}
@@ -165,29 +179,16 @@ export class LitGridLayout extends LitElement {
   }
 
   private _setupLayout(): void {
-    const newLayout: Layout = [];
-
-    // Create new Layout
-    // Iterate over all children and find item in prev layout or create new item
-    for (const element of this._childrenElements) {
-      let layoutItem = this.layout!.find((item) => item.key === element.key);
-
-      if (!layoutItem) {
-        const itemProps = element.grid || {
-          width: 1,
-          height: 1,
-          posX: 0,
-          posY: findLayoutBottom(newLayout),
-        };
-
-        layoutItem = { ...itemProps, key: element.key };
-      }
-
-      newLayout.push(layoutItem);
+    if (!this.layout) {
+      throw new Error('Missing "layout"');
     }
 
-    this._updateLayout(newLayout, true);
-    fireEvent(this, "layout-changed", { layout: this._layout });
+    // Dirty check to avoid endless cycles
+    if (areLayoutsDifferent(this.layout, this._layout)) {
+      this._updateLayout(this.layout, true);
+
+      fireEvent<LayoutChangedEvent>(this, "layout-changed", { layout: this._layout });
+    }
   }
 
   private _updateLayout(
@@ -200,12 +201,6 @@ export class LitGridLayout extends LitElement {
     } else {
       const newLayout = fix ? fixLayoutBounds(layout, this.columns) : layout;
       this._layout = condenseLayout(newLayout);
-    }
-
-    // Create an object so we can quickly find the item in render
-    this._layoutObject = {};
-    for (const item of this._layout) {
-      this._layoutObject[item.key] = item;
     }
   }
 
@@ -237,10 +232,13 @@ export class LitGridLayout extends LitElement {
   }
 
   private _itemResizeEnd(): void {
-    fireEvent(this, "item-changed", {
-      item: this._placeholder,
-      layout: this._layout,
-    });
+    // Dirty check, avoid unnecessary events
+    if (!this.layout || areLayoutsDifferent(this.layout, this._layout)) {
+      fireEvent<ItemChangedEvent>(this, "item-changed", {
+        item: this._placeholder,
+        layout: this._layout,
+      });
+    }
 
     this._placeholder = undefined;
     this._oldItemLayout = undefined;
@@ -284,10 +282,13 @@ export class LitGridLayout extends LitElement {
   }
 
   private _itemDragEnd(): void {
-    fireEvent(this, "item-changed", {
-      item: this._placeholder,
-      layout: this._layout,
-    });
+    // Dirty check, avoid unnecessary events
+    if (!this.layout || areLayoutsDifferent(this.layout, this._layout)) {
+      fireEvent<ItemChangedEvent>(this, "item-changed", {
+        item: this._placeholder,
+        layout: this._layout,
+      });
+    }
 
     this._placeholder = undefined;
     this._oldItemLayout = undefined;

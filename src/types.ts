@@ -1,16 +1,16 @@
-export interface LayoutItem {
+export interface LayoutItem <Key extends string = string> {
   width: number;
   height: number;
   posX: number;
   posY: number;
-  key: string;
+  key: Key;
   hasMoved?: boolean;
   minWidth?: number;
   maxWidth?: number;
   minHeight?: number;
   maxHeight?: number;
 }
-export type Layout = Array<LayoutItem>;
+export type Layout <Key extends string = string> = Array<LayoutItem<Key>>;
 
 export interface LayoutObject {
   [key: string]: LayoutItem;
@@ -55,9 +55,30 @@ export interface ItemResizedEvent {
   newHeight: number;
 }
 
+export interface LayoutChangedEvent {
+  layout: Layout;
+}
+
+export interface ItemChangedEvent {
+  item?: LayoutItem;
+  layout: Layout;
+}
+
+export interface DragStartEvent {
+  startX?: number;
+  startY?: number;
+}
+
 export interface MouseLocation {
   x: number;
   y: number;
+}
+
+export interface ResizableResizeEvent {
+  width: number;
+  height: number;
+  deltaX: number;
+  deltaY: number;
 }
 
 export interface MouseTouchLocation {

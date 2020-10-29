@@ -42,7 +42,7 @@ export class LitResizableWrapper extends LitElement {
     this.style.setProperty("--item-width", `${width}px`);
     this.style.setProperty("--item-height", `${height}px`);
 
-    fireEvent(this, "resize", { width, height });
+    fireEvent<ResizingEvent>(this, "resize", { width, height });
   }
 
   private _resizeEnd(ev: Event): void {

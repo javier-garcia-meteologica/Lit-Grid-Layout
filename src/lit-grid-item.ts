@@ -13,7 +13,7 @@ import {
 import { classMap } from "lit-html/directives/class-map";
 import "./lit-draggable";
 import "./lit-resizable";
-import type { DraggingEvent, LGLDomEvent, ResizingEvent } from "./types";
+import type { DraggingEvent, LGLDomEvent, ResizingEvent, ItemResizedEvent, ItemDraggedEvent } from "./types";
 import { fireEvent } from "./util/fire-event";
 
 @customElement("lit-grid-item")
@@ -242,7 +242,7 @@ export class LitGridItem extends LitElement {
       return;
     }
 
-    fireEvent(this, "resize", { newWidth, newHeight });
+    fireEvent<ItemResizedEvent>(this, "resize", { newWidth, newHeight });
   }
 
   private _resizeEnd(): void {
@@ -303,7 +303,7 @@ export class LitGridItem extends LitElement {
     newPosY = Math.max(0, newPosY);
     newPosX = Math.min(this.columns - this.width, newPosX);
 
-    fireEvent(this, "dragging", { newPosX, newPosY });
+    fireEvent<ItemDraggedEvent>(this, "dragging", { newPosX, newPosY });
   }
 
   private _dragEnd(): void {

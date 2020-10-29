@@ -9,6 +9,7 @@ import { fireEvent } from "./util/fire-event";
 import { getMouseTouchLocation } from "./util/get-mouse-touch-location";
 import { getTouchIdentifier } from "./util/get-touch-identifier";
 import { matchesSelectorAndParentsTo } from "./util/match-selector";
+import { DragStartEvent, DraggingEvent } from './types';
 
 @customElement("lit-draggable")
 export class LitDraggable extends LitElement {
@@ -94,7 +95,7 @@ export class LitDraggable extends LitElement {
 
     this._dragging = true;
 
-    fireEvent(this, "dragStart", {
+    fireEvent<DragStartEvent>(this, "dragStart", {
       startX: this.startX,
       startY: this.startY,
     });
@@ -126,7 +127,7 @@ export class LitDraggable extends LitElement {
       return;
     }
 
-    fireEvent(this, "dragging", {
+    fireEvent<DraggingEvent>(this, "dragging", {
       deltaX,
       deltaY,
     });

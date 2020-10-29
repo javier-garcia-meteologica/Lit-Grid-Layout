@@ -64,7 +64,7 @@ export class LitDraggableWrapper extends LitElement {
       `${Math.round(this._startTop! + deltaY)}px`
     );
 
-    fireEvent(this, "dragging", { deltaX, deltaY });
+    fireEvent<DraggingEvent>(this, "dragging", { deltaX, deltaY });
   }
 
   private _dragEnd(): void {
